@@ -218,6 +218,7 @@ export function calculateNutrition(
     fiber: number
     fssaiCompliant: boolean
     fssaiNotes: string
+    validRecipe: boolean
 } {
     let totalWeight = 0
     let totalCalories = 0
@@ -230,6 +231,7 @@ export function calculateNutrition(
     let totalFiber = 0
 
     const unmatchedIngredients: string[] = []
+    let matchedCount = 0
 
     for (const ingredient of ingredients) {
         // Convert quantity to grams (approximate)
@@ -246,6 +248,7 @@ export function calculateNutrition(
 
         const nutrientData = findIngredient(ingredient.name)
         if (nutrientData) {
+            matchedCount++
             const factor = quantityInGrams / 100
             totalCalories += nutrientData.calories * factor
             totalProtein += nutrientData.protein * factor
@@ -259,6 +262,23 @@ export function calculateNutrition(
             unmatchedIngredients.push(ingredient.name)
         }
         totalWeight += quantityInGrams
+    }
+
+    // If NO ingredients were recognized, it's an invalid recipe
+    if (matchedCount === 0) {
+        return {
+            calories: 0,
+            protein: 0,
+            fat: 0,
+            saturatedFat: 0,
+            carbohydrates: 0,
+            sugar: 0,
+            sodium: 0,
+            fiber: 0,
+            fssaiCompliant: false,
+            fssaiNotes: "No valid food ingredients were recognized. Please enter real food items (e.g., rice, chicken, tomato, onion, etc.).",
+            validRecipe: false,
+        }
     }
 
     // Normalize to per 100g
@@ -275,6 +295,7 @@ export function calculateNutrition(
         fiber: Math.round(totalFiber * normFactor * 10) / 10,
         fssaiCompliant: true,
         fssaiNotes: "",
+        validRecipe: true,
     }
 
     // FSSAI compliance checks

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, User as UserIcon, Weight, Calendar } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
@@ -232,27 +232,22 @@ export default function UserDashboard() {
     }
   }
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/auth")
+    } else if (!isLoading && user && user.role !== "user") {
+      router.push("/dashboard/manufacturer")
+    } else if (!isLoading && user && (!user.profile?.age || !user.profile?.weight)) {
+      router.push("/setup-profile")
+    }
+  }, [isLoading, user, router])
+
+  if (isLoading || !user || user.role !== "user" || !user.profile?.age || !user.profile?.weight) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
-  }
-
-  if (!user) {
-    router.push("/auth")
-    return null
-  }
-
-  if (user.role !== "user") {
-    router.push("/dashboard/manufacturer")
-    return null
-  }
-
-  if (!user.profile?.age || !user.profile?.weight) {
-    router.push("/setup-profile")
-    return null
   }
 
   return (
@@ -361,22 +356,6 @@ export default function UserDashboard() {
               </div>
             )}
 
-            {nutrition && (
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Recipe"
-                )}
-              </button>
-            )}
           </div>
         </div>
       </main>

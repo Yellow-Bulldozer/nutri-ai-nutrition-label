@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { RecipeInput, type Ingredient } from "@/components/recipe-input"
 import { NutritionLabel } from "@/components/nutrition-label"
+import { NutritionInsights } from "@/components/nutrition-insights"
 import { toast } from "sonner"
 
 interface NutritionResult {
@@ -22,33 +23,40 @@ interface NutritionResult {
   fssaiNotes: string
 }
 
+interface InsightsData {
+  quality: "Good" | "Moderate" | "Poor"
+  positiveAspects: string[]
+  concerns: string[]
+  improvements: string[]
+}
+
 export default function ManufacturerDashboard() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<NutritionResult | null>(null)
+  const [insights, setInsights] = useState<InsightsData | null>(null)
+  const [loadingInsights, setLoadingInsights] = useState(false)
   const [recipeData, setRecipeData] = useState<{
     name: string
     servingSize: number
     ingredients: Ingredient[]
   } | null>(null)
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/auth")
+    } else if (!isLoading && user && user.role !== "manufacturer") {
+      router.push("/dashboard/user")
+    }
+  }, [isLoading, user, router])
+
+  if (isLoading || !user || user.role !== "manufacturer") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
-  }
-
-  if (!user) {
-    router.push("/auth")
-    return null
-  }
-
-  if (user.role !== "manufacturer") {
-    router.push("/dashboard/user")
-    return null
   }
 
   const handleAnalyze = async (data: {
@@ -59,6 +67,7 @@ export default function ManufacturerDashboard() {
     setAnalyzing(true)
     setRecipeData(data)
     setResult(null)
+    setInsights(null)
 
     try {
       const res = await fetch("/api/ai/analyze", {
@@ -102,7 +111,38 @@ export default function ManufacturerDashboard() {
           }),
         })
       } catch {
-        // Silent fail — don't block analysis if save fails
+        // Silent fail
+      }
+
+      // Fetch Nutrition Insights
+      setLoadingInsights(true)
+      try {
+        const insightsRes = await fetch("/api/ai/insights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nutrition: {
+              calories: nutrition.calories,
+              protein: nutrition.protein,
+              fat: nutrition.fat,
+              saturatedFat: nutrition.saturatedFat,
+              carbohydrates: nutrition.carbohydrates,
+              sugar: nutrition.sugar,
+              sodium: nutrition.sodium,
+              fiber: nutrition.fiber,
+            },
+            servingSize: data.servingSize,
+          }),
+        })
+
+        if (insightsRes.ok) {
+          const { insights: insightsData } = await insightsRes.json()
+          setInsights(insightsData)
+        }
+      } catch {
+        // Insights are optional — don't block
+      } finally {
+        setLoadingInsights(false)
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Analysis failed")
@@ -128,42 +168,56 @@ export default function ManufacturerDashboard() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              Recipe Details
-            </h2>
-            <RecipeInput onSubmit={handleAnalyze} loading={analyzing} />
+          <div className="flex flex-col gap-8">
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                Recipe Details
+              </h2>
+              <RecipeInput onSubmit={handleAnalyze} loading={analyzing} />
+            </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              Nutrition Label
-            </h2>
+          <div className="flex flex-col gap-8">
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                Nutrition Label
+              </h2>
 
-            {analyzing && (
-              <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm">Analyzing your recipe...</p>
-              </div>
-            )}
+              {analyzing && (
+                <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm">Analyzing your recipe...</p>
+                </div>
+              )}
 
-            {!analyzing && !result && (
-              <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
-                <p className="text-sm">Enter ingredients and click &quot;Analyze Recipe&quot; to generate a nutrition label.</p>
-              </div>
-            )}
+              {!analyzing && !result && (
+                <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
+                  <p className="text-sm">Enter ingredients and click &quot;Analyze Recipe&quot; to generate a nutrition label.</p>
+                </div>
+              )}
 
-            {!analyzing && result && recipeData && (
-              <NutritionLabel
-                recipeName={recipeData.name}
-                servingSize={recipeData.servingSize}
-                nutrition={result}
-                fssaiCompliant={result.fssaiCompliant}
-                fssaiNotes={result.fssaiNotes}
-              />
-            )}
+              {!analyzing && result && recipeData && (
+                <NutritionLabel
+                  recipeName={recipeData.name}
+                  servingSize={recipeData.servingSize}
+                  nutrition={result}
+                  fssaiCompliant={result.fssaiCompliant}
+                  fssaiNotes={result.fssaiNotes}
+                />
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Nutrition Insights Section — shown after analysis */}
+        {(loadingInsights || insights) && (
+          <div className="mt-8 rounded-xl border border-border bg-card p-6">
+            <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+              📊 Nutrition Insights
+            </h2>
+            <NutritionInsights insights={insights} loading={loadingInsights} />
+          </div>
+        )}
       </main>
     </div>
   )
