@@ -1,43 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
-import { generateText, Output } from "ai"
+import { generateText } from "ai"
 import { google } from "@ai-sdk/google"
-import { getAuthUser } from "@/lib/auth"
 import { calculateNutrition } from "@/lib/nutrition-db"
 import { z } from "zod"
 
 const nutritionSchema = z.object({
-  calories: z.number().describe("Energy in kcal per 100g"),
-  protein: z.number().describe("Protein in grams per 100g"),
-  fat: z.number().describe("Total fat in grams per 100g"),
-  saturatedFat: z.number().describe("Saturated fat in grams per 100g"),
-  carbohydrates: z.number().describe("Total carbohydrates in grams per 100g"),
-  sugar: z.number().describe("Sugar in grams per 100g"),
-  sodium: z.number().describe("Sodium in milligrams per 100g"),
-  fiber: z.number().describe("Dietary fiber in grams per 100g"),
-  fssaiCompliant: z
-    .boolean()
-    .describe(
-      "Whether all mandatory FSSAI label fields are present and values fall within acceptable ranges"
-    ),
-  fssaiNotes: z
-    .string()
-    .describe(
-      "Brief notes on FSSAI compliance status and any issues"
-    ),
+  calories: z.number(),
+  protein: z.number(),
+  fat: z.number(),
+  saturatedFat: z.number(),
+  carbohydrates: z.number(),
+  sugar: z.number(),
+  sodium: z.number(),
+  fiber: z.number(),
+  fssaiCompliant: z.boolean(),
+  fssaiNotes: z.string(),
 })
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthUser()
-    if (!auth) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      )
-    }
-
-    const { ingredients, servingSize } = await req.json()
-
+    const body = await req.json()
+    const { ingredients, servingSize } = body
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
       return NextResponse.json(
         { error: "At least one ingredient is required" },
@@ -45,7 +28,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Try AI-based analysis first
     try {
       const ingredientList = ingredients
         .map(
@@ -54,23 +36,33 @@ export async function POST(req: NextRequest) {
         )
         .join("\n")
 
+      // AI-based nutrition calculation
       const { output } = await generateText({
         model: google("gemini-2.0-flash"),
-        maxRetries: 3,
+        maxRetries: 2,
         output: Output.object({ schema: nutritionSchema }),
-        system: `You are a certified nutritionist and food scientist. When given a list of food ingredients with quantities, calculate accurate nutritional values based on standard nutritional databases (USDA/IFCT). The values should be calculated per 100g serving. Also determine if this would meet FSSAI compliance requirements for mandatory labeling fields and acceptable value ranges per FSSAI Schedule I guidelines. Always return valid JSON only. No extra text.`,
-        prompt: `Calculate the complete nutritional values per 100g serving for the following recipe (total serving size: ${servingSize || 100}g):\n\n${ingredientList}`,
+        system: `
+You are a certified nutritionist and food scientist.
+Calculate accurate nutrition values per 100g serving.
+Return ONLY valid JSON.
+`,
+        prompt: `
+Calculate nutrition per 100g serving for:
+
+${ingredientList}
+`,
       })
 
       return NextResponse.json({ nutrition: output })
+
     } catch (aiError) {
-      // AI failed (rate limit, API key issue, etc.) — use local nutrition database
-      console.warn("AI analysis failed, using local nutrition database:", aiError)
+      console.warn("AI failed, using local database:", aiError)
       const nutrition = calculateNutrition(ingredients, servingSize || 100)
       return NextResponse.json({ nutrition })
     }
   } catch (error) {
     console.error("Nutrition analysis error:", error)
+
     return NextResponse.json(
       { error: "Failed to analyze nutrition" },
       { status: 500 }
