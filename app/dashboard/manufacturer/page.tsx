@@ -8,6 +8,8 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { RecipeInput, type Ingredient } from "@/components/recipe-input"
 import { NutritionLabel } from "@/components/nutrition-label"
 import { NutritionInsights } from "@/components/nutrition-insights"
+import { DashboardBackground } from "@/components/dashboard-background"
+import { AnimatedCard, AnimatedTitle, AnimatedSubtitle, AnimatedSection } from "@/components/animated-card"
 import { toast } from "sonner"
 
 interface NutritionResult {
@@ -152,73 +154,71 @@ export default function ManufacturerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-8">
-          <h1
-            className="text-3xl font-bold text-foreground"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Manufacturer Dashboard
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Enter your recipe ingredients to generate an FSSAI-compliant nutrition label.
-          </p>
-        </div>
+    <div className="min-h-screen bg-background relative">
+      <DashboardBackground variant="manufacturer" />
+      <div className="relative z-10">
+        <DashboardHeader />
+        <main className="mx-auto max-w-6xl px-4 py-8">
+          <AnimatedSection className="mb-8">
+            <AnimatedTitle>Manufacturer Dashboard</AnimatedTitle>
+            <AnimatedSubtitle>
+              Enter your recipe ingredients to generate an FSSAI-compliant nutrition label.
+            </AnimatedSubtitle>
+          </AnimatedSection>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          <div className="flex flex-col gap-8">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                Recipe Details
-              </h2>
-              <RecipeInput onSubmit={handleAnalyze} loading={analyzing} />
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="flex flex-col gap-8">
+              <AnimatedCard index={0} glowColor="rgba(80,155,75,0.3)">
+                <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                  Recipe Details
+                </h2>
+                <RecipeInput onSubmit={handleAnalyze} loading={analyzing} />
+              </AnimatedCard>
+            </div>
+
+            <div className="flex flex-col gap-8">
+              <AnimatedCard index={1} glowColor="rgba(60,140,65,0.3)">
+                <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                  Nutrition Label
+                </h2>
+
+                {analyzing && (
+                  <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm">Analyzing your recipe...</p>
+                  </div>
+                )}
+
+                {!analyzing && !result && (
+                  <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
+                    <p className="text-sm">Enter ingredients and click &quot;Analyze Recipe&quot; to generate a nutrition label.</p>
+                  </div>
+                )}
+
+                {!analyzing && result && recipeData && (
+                  <NutritionLabel
+                    recipeName={recipeData.name}
+                    servingSize={recipeData.servingSize}
+                    nutrition={result}
+                    fssaiCompliant={result.fssaiCompliant}
+                    fssaiNotes={result.fssaiNotes}
+                  />
+                )}
+              </AnimatedCard>
             </div>
           </div>
 
-          <div className="flex flex-col gap-8">
-            <div className="rounded-xl border border-border bg-card p-6">
+          {/* Nutrition Insights Section — shown after analysis */}
+          {(loadingInsights || insights) && (
+            <AnimatedCard index={2} className="mt-8" glowColor="rgba(100,180,90,0.3)">
               <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                Nutrition Label
+                📊 Nutrition Insights
               </h2>
-
-              {analyzing && (
-                <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm">Analyzing your recipe...</p>
-                </div>
-              )}
-
-              {!analyzing && !result && (
-                <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">
-                  <p className="text-sm">Enter ingredients and click &quot;Analyze Recipe&quot; to generate a nutrition label.</p>
-                </div>
-              )}
-
-              {!analyzing && result && recipeData && (
-                <NutritionLabel
-                  recipeName={recipeData.name}
-                  servingSize={recipeData.servingSize}
-                  nutrition={result}
-                  fssaiCompliant={result.fssaiCompliant}
-                  fssaiNotes={result.fssaiNotes}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Nutrition Insights Section — shown after analysis */}
-        {(loadingInsights || insights) && (
-          <div className="mt-8 rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-6 text-lg font-semibold text-card-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-              📊 Nutrition Insights
-            </h2>
-            <NutritionInsights insights={insights} loading={loadingInsights} />
-          </div>
-        )}
-      </main>
+              <NutritionInsights insights={insights} loading={loadingInsights} />
+            </AnimatedCard>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
