@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateText, Output } from "ai"
+import { google } from "@ai-sdk/google"
 import { getAuthUser } from "@/lib/auth"
+import { calculateNutrition } from "@/lib/nutrition-db"
 import { z } from "zod"
 
 const nutritionSchema = z.object({
@@ -43,21 +45,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const ingredientList = ingredients
-      .map(
-        (i: { name: string; quantity: number; unit: string }) =>
-          `${i.name}: ${i.quantity} ${i.unit}`
-      )
-      .join("\n")
+    // Try AI-based analysis first
+    try {
+      const ingredientList = ingredients
+        .map(
+          (i: { name: string; quantity: number; unit: string }) =>
+            `${i.name}: ${i.quantity} ${i.unit}`
+        )
+        .join("\n")
 
-    const { output } = await generateText({
-      model: "openai/gpt-4o",
-      output: Output.object({ schema: nutritionSchema }),
-      system: `You are a certified nutritionist and food scientist. When given a list of food ingredients with quantities, calculate accurate nutritional values based on standard nutritional databases (USDA/IFCT). The values should be calculated per 100g serving. Also determine if this would meet FSSAI compliance requirements for mandatory labeling fields and acceptable value ranges per FSSAI Schedule I guidelines. Always return valid JSON only. No extra text.`,
-      prompt: `Calculate the complete nutritional values per 100g serving for the following recipe (total serving size: ${servingSize || 100}g):\n\n${ingredientList}`,
-    })
+      const { output } = await generateText({
+        model: google("gemini-2.0-flash"),
+        maxRetries: 3,
+        output: Output.object({ schema: nutritionSchema }),
+        system: `You are a certified nutritionist and food scientist. When given a list of food ingredients with quantities, calculate accurate nutritional values based on standard nutritional databases (USDA/IFCT). The values should be calculated per 100g serving. Also determine if this would meet FSSAI compliance requirements for mandatory labeling fields and acceptable value ranges per FSSAI Schedule I guidelines. Always return valid JSON only. No extra text.`,
+        prompt: `Calculate the complete nutritional values per 100g serving for the following recipe (total serving size: ${servingSize || 100}g):\n\n${ingredientList}`,
+      })
 
-    return NextResponse.json({ nutrition: output })
+      return NextResponse.json({ nutrition: output })
+    } catch (aiError) {
+      // AI failed (rate limit, API key issue, etc.) — use local nutrition database
+      console.warn("AI analysis failed, using local nutrition database:", aiError)
+      const nutrition = calculateNutrition(ingredients, servingSize || 100)
+      return NextResponse.json({ nutrition })
+    }
   } catch (error) {
     console.error("Nutrition analysis error:", error)
     return NextResponse.json(

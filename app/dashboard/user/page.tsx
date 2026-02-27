@@ -8,6 +8,7 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { GoalSelector } from "@/components/goal-selector"
 import { RecipeInput, type Ingredient } from "@/components/recipe-input"
 import { NutritionLabel } from "@/components/nutrition-label"
+import { NutritionCharts } from "@/components/nutrition-charts"
 import { GoalAnalysisDisplay } from "@/components/goal-analysis-display"
 import { toast } from "sonner"
 
@@ -170,21 +171,21 @@ export default function UserDashboard() {
           fssaiCompliant: nutrition.fssaiCompliant,
           goalAnalysis: goalAnalysis
             ? {
-                goal: currentGoal,
-                suitable: goalAnalysis.suitable,
-                aiComment: goalAnalysis.reason,
-              }
+              goal: currentGoal,
+              suitable: goalAnalysis.suitable,
+              aiComment: goalAnalysis.reason,
+            }
             : null,
           improvedRecipe: improvedRecipe
             ? {
-                ingredients: improvedRecipe.ingredients.map((i) => ({
-                  name: i.name,
-                  quantity: i.quantity,
-                  unit: i.unit,
-                })),
-                changes: improvedRecipe.changes,
-                recommendedFoods: improvedRecipe.recommendedFoods,
-              }
+              ingredients: improvedRecipe.ingredients.map((i) => ({
+                name: i.name,
+                quantity: i.quantity,
+                unit: i.unit,
+              })),
+              changes: improvedRecipe.changes,
+              recommendedFoods: improvedRecipe.recommendedFoods,
+            }
             : null,
         }),
       })
@@ -294,6 +295,13 @@ export default function UserDashboard() {
                   />
                 )}
               </div>
+            )}
+
+            {nutrition && recipeData && (
+              <NutritionCharts
+                nutrition={nutrition}
+                servingSize={recipeData.servingSize}
+              />
             )}
 
             {(checkingGoal || goalAnalysis) && (
