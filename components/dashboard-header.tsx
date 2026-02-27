@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Leaf, LogOut, History, LayoutDashboard } from "lucide-react"
+import { Leaf, LogOut, History, LayoutDashboard, Sparkles } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 
 export function DashboardHeader() {
@@ -38,6 +38,15 @@ export function DashboardHeader() {
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </Link>
+          {user?.role === "user" && (
+            <Link
+              href="/dashboard/recommended"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Recommended</span>
+            </Link>
+          )}
           <Link
             href="/dashboard/history"
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

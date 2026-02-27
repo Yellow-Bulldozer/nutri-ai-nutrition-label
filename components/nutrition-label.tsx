@@ -175,6 +175,74 @@ export function NutritionLabel({
         <p className="mt-3 text-[9px] text-muted-foreground leading-tight">
           * Percent Daily Values are based on a 2,000 calorie diet. Your daily values may be higher or lower depending on your calorie needs.
         </p>
+
+        {/* Best Before / Expiry Section */}
+        {(() => {
+          // Estimate shelf life based on nutrition profile
+          let shelfDays = 180 // default: 6 months for packaged food
+
+          // High moisture content (lots of water-heavy ingredients) = shorter shelf life
+          if (nutrition.calories < 100 && nutrition.protein < 5) shelfDays = 5 // fresh salads, juices
+          else if (nutrition.protein > 15 && nutrition.fat < 5) shelfDays = 3 // lean fresh meat/fish
+          else if (nutrition.protein > 15) shelfDays = 7 // cooked protein dishes
+          else if (nutrition.calories < 200 && nutrition.fiber > 3) shelfDays = 7 // fresh veggie dishes
+
+          // High sugar = preservative effect
+          if (nutrition.sugar > 40) shelfDays = Math.max(shelfDays, 365) // jams, sweets
+          // High sodium = preservative effect
+          if (nutrition.sodium > 1500) shelfDays = Math.max(shelfDays, 270) // pickles, cured foods
+          // Dry goods
+          if (nutrition.calories > 350 && nutrition.fat < 5 && nutrition.protein < 15) shelfDays = Math.max(shelfDays, 365) // cereals, grains
+
+          const today = new Date()
+          const expiryDate = new Date(today.getTime() + shelfDays * 24 * 60 * 60 * 1000)
+          const expiryFormatted = expiryDate.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+
+          let shelfLabel = ""
+          if (shelfDays <= 3) shelfLabel = `Best Before ${shelfDays} days from manufacturing`
+          else if (shelfDays <= 7) shelfLabel = `Best Before ${shelfDays} days from manufacturing`
+          else if (shelfDays <= 30) shelfLabel = `Best Before ${shelfDays} days from manufacturing`
+          else if (shelfDays <= 90) shelfLabel = `Best Before ${Math.round(shelfDays / 30)} months from manufacturing`
+          else if (shelfDays <= 365) shelfLabel = `Best Before ${Math.round(shelfDays / 30)} months from manufacturing`
+          else shelfLabel = `Best Before ${Math.round(shelfDays / 365)} year(s) from manufacturing`
+
+          let storageNote = ""
+          if (shelfDays <= 7) storageNote = "Store in refrigerator at 4°C or below."
+          else if (shelfDays <= 30) storageNote = "Store in a cool, dry place. Refrigerate after opening."
+          else storageNote = "Store in a cool, dry place away from direct sunlight."
+
+          return (
+            <div className="mt-3 border-t-2 border-foreground pt-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[10px] font-bold text-card-foreground uppercase tracking-wider">
+                  📅 Shelf Life & Storage
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-card-foreground">{shelfLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Mfg. Date (indicative):</span>
+                  <span className="font-medium text-card-foreground">
+                    {today.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Expiry Date (indicative):</span>
+                  <span className="font-medium text-card-foreground">{expiryFormatted}</span>
+                </div>
+                <p className="mt-1 text-[9px] italic text-muted-foreground">
+                  {storageNote}
+                </p>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
