@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { generateText } from "ai"
+import { generateText, Output } from "ai"
 import { google } from "@ai-sdk/google"
 import { calculateNutrition } from "@/lib/nutrition-db"
 import { z } from "zod"
