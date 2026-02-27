@@ -26,7 +26,6 @@ export default function ManufacturerDashboard() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const [analyzing, setAnalyzing] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<NutritionResult | null>(null)
   const [recipeData, setRecipeData] = useState<{
     name: string
@@ -79,45 +78,36 @@ export default function ManufacturerDashboard() {
       const { nutrition } = await res.json()
       setResult(nutrition)
       toast.success("Nutrition analysis complete!")
+
+      // Auto-save to history
+      try {
+        await fetch("/api/recipe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data.name,
+            servingSize: data.servingSize,
+            ingredients: data.ingredients,
+            nutrition: {
+              calories: nutrition.calories,
+              protein: nutrition.protein,
+              fat: nutrition.fat,
+              saturatedFat: nutrition.saturatedFat,
+              carbohydrates: nutrition.carbohydrates,
+              sugar: nutrition.sugar,
+              sodium: nutrition.sodium,
+              fiber: nutrition.fiber,
+            },
+            fssaiCompliant: nutrition.fssaiCompliant,
+          }),
+        })
+      } catch {
+        // Silent fail — don't block analysis if save fails
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Analysis failed")
     } finally {
       setAnalyzing(false)
-    }
-  }
-
-  const handleSave = async () => {
-    if (!recipeData || !result) return
-    setSaving(true)
-
-    try {
-      const res = await fetch("/api/recipe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: recipeData.name,
-          servingSize: recipeData.servingSize,
-          ingredients: recipeData.ingredients,
-          nutrition: {
-            calories: result.calories,
-            protein: result.protein,
-            fat: result.fat,
-            saturatedFat: result.saturatedFat,
-            carbohydrates: result.carbohydrates,
-            sugar: result.sugar,
-            sodium: result.sodium,
-            fiber: result.fiber,
-          },
-          fssaiCompliant: result.fssaiCompliant,
-        }),
-      })
-
-      if (!res.ok) throw new Error("Failed to save")
-      toast.success("Recipe saved!")
-    } catch {
-      toast.error("Failed to save recipe")
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -153,7 +143,7 @@ export default function ManufacturerDashboard() {
             {analyzing && (
               <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm">Analyzing your recipe with AI...</p>
+                <p className="text-sm">Analyzing your recipe...</p>
               </div>
             )}
 
@@ -164,30 +154,13 @@ export default function ManufacturerDashboard() {
             )}
 
             {!analyzing && result && recipeData && (
-              <div className="flex flex-col gap-4">
-                <NutritionLabel
-                  recipeName={recipeData.name}
-                  servingSize={recipeData.servingSize}
-                  nutrition={result}
-                  fssaiCompliant={result.fssaiCompliant}
-                  fssaiNotes={result.fssaiNotes}
-                />
-
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex h-10 items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Recipe"
-                  )}
-                </button>
-              </div>
+              <NutritionLabel
+                recipeName={recipeData.name}
+                servingSize={recipeData.servingSize}
+                nutrition={result}
+                fssaiCompliant={result.fssaiCompliant}
+                fssaiNotes={result.fssaiNotes}
+              />
             )}
           </div>
         </div>

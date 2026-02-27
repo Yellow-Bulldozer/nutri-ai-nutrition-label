@@ -112,6 +112,39 @@ export default function UserDashboard() {
       if (!goalRes.ok) throw new Error("Goal analysis failed")
       const { goalAnalysis: analysis } = await goalRes.json()
       setGoalAnalysis(analysis)
+
+      // Auto-save to history
+      try {
+        await fetch("/api/recipe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data.name,
+            servingSize: data.servingSize,
+            ingredients: data.ingredients,
+            nutrition: {
+              calories: nutritionData.calories,
+              protein: nutritionData.protein,
+              fat: nutritionData.fat,
+              saturatedFat: nutritionData.saturatedFat,
+              carbohydrates: nutritionData.carbohydrates,
+              sugar: nutritionData.sugar,
+              sodium: nutritionData.sodium,
+              fiber: nutritionData.fiber,
+            },
+            fssaiCompliant: nutritionData.fssaiCompliant,
+            goalAnalysis: analysis
+              ? {
+                goal: currentGoal,
+                suitable: analysis.suitable,
+                aiComment: analysis.reason,
+              }
+              : null,
+          }),
+        })
+      } catch {
+        // Silent fail
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Analysis failed")
     } finally {
